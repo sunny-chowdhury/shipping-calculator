@@ -10,14 +10,26 @@ export class RateComparisonService {
     if (this.initialized) return;
 
     try {
-      await Promise.all([
+      const results = await Promise.allSettled([
         this.loadUSPSRates(),
         this.loadFedExRates()
       ]);
+
+      // Log any failures but don't fail the entire initialization
+      results.forEach((result, index) => {
+        const service = index === 0 ? 'USPS' : 'FedEx';
+        if (result.status === 'rejected') {
+          console.error(`Failed to load ${service} rates:`, result.reason);
+        } else {
+          console.log(`Successfully loaded ${service} rates`);
+        }
+      });
+
       this.initialized = true;
     } catch (error) {
       console.error('Error initializing rate comparison service:', error);
-      throw error;
+      // Still mark as initialized so the app doesn't break completely
+      this.initialized = true;
     }
   }
 
@@ -34,47 +46,42 @@ export class RateComparisonService {
             try {
               const data = result.data as string[][];
 
-              const startIndex = data.findIndex((row) => {
-                // Check both first and second column since CSV has empty first column
-                return (row[0] && row[0].toLowerCase().includes('weight not over')) ||
-                       (row[1] && row[1].toLowerCase().includes('weight not over'));
+              const startIndex = data.findIndex((row, index) => {
+                // Check all columns for the header since CSV structure may vary
+                for (let i = 0; i < Math.min(row.length, 5); i++) {
+                  if (row[i] && row[i].toString().toLowerCase().includes('weight not over')) {
+                    return true;
+                  }
+                }
+                return false;
               });
 
               if (startIndex === -1) {
-                throw new Error('Could not find USPS rate data header');
-              }
+                console.error('USPS CSV parsing failed. Available data structure:');
+                console.error('First 5 rows:', data.slice(0, 5));
+                console.error('Row lengths:', data.slice(0, 10).map((row, i) => `Row ${i}: ${row.length} columns`));
 
-              for (let i = startIndex + 1; i < data.length; i++) {
-                const row = data[i];
-                if (row.length < 11 || !row[1]) continue; // Check row[1] since first column is empty
+                // Try alternative approach: look for numeric weight patterns
+                const altStartIndex = data.findIndex((row, index) => {
+                  return index > 2 && row.length > 8 &&
+                         (row[0]?.toString().includes('oz') || row[1]?.toString().includes('oz') ||
+                          row[0]?.toString().includes('lb') || row[1]?.toString().includes('lb'));
+                });
 
-                let weight = row[1].replace(/[^\d.]/g, ''); // Use row[1] for weight
-                if (!weight) continue;
-
-                // Convert ounces to pounds if needed
-                if (row[1].toLowerCase().includes('oz')) {
-                  const ozWeight = parseFloat(weight);
-                  weight = (ozWeight / 16).toFixed(3); // Convert oz to lbs
+                if (altStartIndex > 0) {
+                  console.log('Using alternative header detection at row:', altStartIndex - 1);
+                  // Use the row before the weight data as header
+                  const headerRow = data[altStartIndex - 1];
+                  if (headerRow && headerRow.length > 8) {
+                    // Found header row, continue with altStartIndex - 1
+                    return this.parseUSPSData(data, altStartIndex - 1);
+                  }
                 }
 
-                const rateData: USPSRateData = {
-                  weight,
-                  zone1: this.cleanRate(row[2]), // Shift all zone columns by 1
-                  zone2: this.cleanRate(row[3]),
-                  zone3: this.cleanRate(row[4]),
-                  zone4: this.cleanRate(row[5]),
-                  zone5: this.cleanRate(row[6]),
-                  zone6: this.cleanRate(row[7]),
-                  zone7: this.cleanRate(row[8]),
-                  zone8: this.cleanRate(row[9]),
-                  zone9: this.cleanRate(row[10])
-                };
-
-                this.uspsRates.push(rateData);
+                throw new Error(`Could not find USPS rate data header. Checked ${data.length} rows.`);
               }
 
-              console.log(`Loaded ${this.uspsRates.length} USPS rate records`);
-              resolve();
+              return this.parseUSPSData(data, startIndex);
             } catch (error) {
               reject(error);
             }
@@ -86,6 +93,42 @@ export class RateComparisonService {
       console.error('Error loading USPS rates:', error);
       throw error;
     }
+  }
+
+  private parseUSPSData(data: string[][], startIndex: number): Promise<void> {
+    return new Promise((resolve) => {
+      for (let i = startIndex + 1; i < data.length; i++) {
+        const row = data[i];
+        if (row.length < 11 || !row[1]) continue; // Check row[1] since first column is empty
+
+        let weight = row[1].replace(/[^\d.]/g, ''); // Use row[1] for weight
+        if (!weight) continue;
+
+        // Convert ounces to pounds if needed
+        if (row[1].toLowerCase().includes('oz')) {
+          const ozWeight = parseFloat(weight);
+          weight = (ozWeight / 16).toFixed(3); // Convert oz to lbs
+        }
+
+        const rateData: USPSRateData = {
+          weight,
+          zone1: this.cleanRate(row[2]), // Shift all zone columns by 1
+          zone2: this.cleanRate(row[3]),
+          zone3: this.cleanRate(row[4]),
+          zone4: this.cleanRate(row[5]),
+          zone5: this.cleanRate(row[6]),
+          zone6: this.cleanRate(row[7]),
+          zone7: this.cleanRate(row[8]),
+          zone8: this.cleanRate(row[9]),
+          zone9: this.cleanRate(row[10])
+        };
+
+        this.uspsRates.push(rateData);
+      }
+
+      console.log(`Loaded ${this.uspsRates.length} USPS rate records`);
+      resolve();
+    });
   }
 
   private async loadFedExRates(): Promise<void> {
