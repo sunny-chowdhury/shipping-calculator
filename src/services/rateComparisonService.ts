@@ -1,5 +1,7 @@
 import Papa from 'papaparse';
 import { USPSRateData, FedExRateData, ShippingData } from '../types';
+import { FEDEX_RATES_CSV } from '../data/fedexRates';
+import { USPS_RATES_CSV } from '../data/uspsRates';
 
 export class RateComparisonService {
   private uspsRates: USPSRateData[] = [];
@@ -35,8 +37,8 @@ export class RateComparisonService {
 
   private async loadUSPSRates(): Promise<void> {
     try {
-      const response = await fetch('/Data/usps-rates.csv');
-      const csvText = await response.text();
+      console.log('🔄 Loading USPS rates from embedded data...');
+      const csvText = USPS_RATES_CSV;
 
       return new Promise((resolve, reject) => {
         Papa.parse(csvText, {
@@ -133,11 +135,8 @@ export class RateComparisonService {
 
   private async loadFedExRates(): Promise<void> {
     try {
-      console.log('🔄 Starting FedEx rates loading (using simple filename)...');
-      const response = await fetch('/Data/fedex-rates.csv');
-      console.log('📥 FedEx CSV response status:', response.status);
-
-      const csvText = await response.text();
+      console.log('🔄 Loading FedEx rates from embedded data...');
+      const csvText = FEDEX_RATES_CSV;
       console.log('📄 FedEx CSV length:', csvText.length);
       console.log('📄 FedEx CSV first 200 chars:', csvText.substring(0, 200));
 
