@@ -229,54 +229,59 @@ export class RateComparisonService {
   }
 
   public getNegotiatedFedExRate(weightInPounds: number, zone: string): number {
+    console.log(`=== FedEx Rate Lookup Debug ===`);
+    console.log(`Looking for weight: ${weightInPounds}lbs, zone: ${zone}`);
+    console.log(`FedEx rates initialized: ${this.initialized}, count: ${this.fedexRates.length}`);
+
     if (!this.initialized || this.fedexRates.length === 0) {
-      console.log('FedEx rates not initialized or empty:', this.fedexRates.length);
+      console.log('❌ FedEx rates not initialized or empty');
       return 0;
     }
 
+    // Find the closest weight (equal or greater)
     let closestRate: FedExRateData | null = null;
     let minWeightDiff = Infinity;
 
     for (const rate of this.fedexRates) {
       const rateWeight = parseFloat(rate.weight);
-      if (isNaN(rateWeight)) continue;
+      if (isNaN(rateWeight)) {
+        console.log(`Skipping invalid weight: ${rate.weight}`);
+        continue;
+      }
 
-      if (rateWeight >= weightInPounds && rateWeight - weightInPounds < minWeightDiff) {
+      const weightDiff = rateWeight - weightInPounds;
+      if (weightDiff >= 0 && weightDiff < minWeightDiff) {
         closestRate = rate;
-        minWeightDiff = rateWeight - weightInPounds;
+        minWeightDiff = weightDiff;
+        console.log(`Found better weight match: ${rateWeight}lbs (diff: ${weightDiff})`);
       }
     }
 
-    if (!closestRate) {
-      const lastRate = this.fedexRates[this.fedexRates.length - 1];
-      if (lastRate) closestRate = lastRate;
+    // If no rate found for exact weight or above, use the highest weight available
+    if (!closestRate && this.fedexRates.length > 0) {
+      closestRate = this.fedexRates[this.fedexRates.length - 1];
+      console.log(`Using highest weight rate: ${closestRate.weight}lbs`);
     }
 
     if (!closestRate) {
-      console.log('No FedEx rate found for weight:', weightInPounds);
+      console.log('❌ No FedEx rate found at all');
       return 0;
     }
 
-    // Try different zone formats
-    let rateValue = closestRate[zone];
-    if (!rateValue) {
-      // Try without leading zeros or different formats
-      const alternativeZones = [
-        zone.toString(),
-        parseInt(zone).toString(),
-        `zone${zone}`,
-        zone.replace(/^0+/, '') // Remove leading zeros
-      ];
+    console.log(`Using rate for weight: ${closestRate.weight}lbs`);
+    console.log(`Available zones in this rate:`, Object.keys(closestRate).filter(k => k !== 'weight'));
 
-      for (const altZone of alternativeZones) {
-        rateValue = closestRate[altZone];
-        if (rateValue) break;
-      }
+    // Direct zone lookup
+    const directRate = closestRate[zone];
+    if (directRate) {
+      const parsedRate = this.parseRate(directRate);
+      console.log(`✅ Found rate for zone ${zone}: ${directRate} → ${parsedRate}`);
+      return parsedRate;
     }
 
-    console.log(`FedEx lookup - Weight: ${weightInPounds}lbs, Zone: ${zone}, Available zones:`, Object.keys(closestRate), 'Found rate:', rateValue);
-
-    return typeof rateValue === 'string' ? this.parseRate(rateValue) : 0;
+    // Zone not found - log available zones for debugging
+    console.log(`❌ Zone ${zone} not found. Available zones:`, Object.keys(closestRate).filter(k => k !== 'weight'));
+    return 0;
   }
 
   public calculateSavings(shippingData: ShippingData, zone: string): {

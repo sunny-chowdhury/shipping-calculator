@@ -209,7 +209,7 @@ function App() {
       <Header>
         <div /> {/* Spacer for left side */}
         <HeaderContent>
-          <Title>Kent Woodyards Magical Shipping Unicorn 🦄</Title>
+          <Title>Kent Woodyards Magical Unicorn Shipping Pricing App🦄</Title>
           <Subtitle>
             Upload CSV files to compare current shipping rates with Loop's negotiated rates
           </Subtitle>
