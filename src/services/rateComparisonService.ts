@@ -35,7 +35,7 @@ export class RateComparisonService {
 
   private async loadUSPSRates(): Promise<void> {
     try {
-      const response = await fetch('/Data/Loop __ USPS Negotiated Rates Savings 10.05.25 - Loop Negotiated Rates - Ground Advantage.csv');
+      const response = await fetch('./Data/Loop __ USPS Negotiated Rates Savings 10.05.25 - Loop Negotiated Rates - Ground Advantage.csv');
       const csvText = await response.text();
 
       return new Promise((resolve, reject) => {
@@ -134,7 +134,7 @@ export class RateComparisonService {
   private async loadFedExRates(): Promise<void> {
     try {
       console.log('🔄 Starting FedEx rates loading...');
-      const response = await fetch('/Data/Loop - FedEx Rates for Ship by Loop Worldwide - 2024 Ground Returns.csv');
+      const response = await fetch('./Data/Loop - FedEx Rates for Ship by Loop Worldwide - 2024 Ground Returns.csv');
       console.log('📥 FedEx CSV response status:', response.status);
 
       const csvText = await response.text();
