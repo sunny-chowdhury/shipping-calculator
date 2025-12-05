@@ -1,4 +1,4 @@
-# Loop Shipping Calculator
+# Kent Woodyards Magical Shipping Unicorn 🦄
 
 A React application that compares current shipping rates with Loop's negotiated USPS and FedEx rates. Upload CSV files containing shipping data, calculate zones, and see potential savings with Loop's negotiated rates.
 
