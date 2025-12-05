@@ -133,8 +133,13 @@ export class RateComparisonService {
 
   private async loadFedExRates(): Promise<void> {
     try {
+      console.log('🔄 Starting FedEx rates loading...');
       const response = await fetch('/Data/Loop - FedEx Rates for Ship by Loop Worldwide - 2024 Ground Returns.csv');
+      console.log('📥 FedEx CSV response status:', response.status);
+
       const csvText = await response.text();
+      console.log('📄 FedEx CSV length:', csvText.length);
+      console.log('📄 FedEx CSV first 200 chars:', csvText.substring(0, 200));
 
       return new Promise((resolve, reject) => {
         Papa.parse(csvText, {
@@ -143,16 +148,22 @@ export class RateComparisonService {
           complete: (result) => {
             try {
               const data = result.data as string[][];
+              console.log('📊 FedEx parsed data length:', data.length);
+              console.log('📊 FedEx first 5 rows:', data.slice(0, 5));
 
               if (data.length < 3) {
-                throw new Error('Invalid FedEx rate data format');
+                throw new Error(`Invalid FedEx rate data format - only ${data.length} rows found`);
               }
 
               const zoneHeaders = data[1].slice(1);
+              console.log('🏷️ FedEx zone headers:', zoneHeaders);
 
               for (let i = 2; i < data.length; i++) {
                 const row = data[i];
-                if (row.length < 2 || !row[0]) continue;
+                if (row.length < 2 || !row[0]) {
+                  console.log(`⏭️ Skipping FedEx row ${i}: insufficient data`);
+                  continue;
+                }
 
                 const weight = row[0];
                 const rateData: FedExRateData = { weight };
@@ -165,21 +176,28 @@ export class RateComparisonService {
                 }
 
                 this.fedexRates.push(rateData);
+
+                if (i <= 4) {
+                  console.log(`➕ Added FedEx rate for ${weight}lbs:`, rateData);
+                }
               }
 
-              console.log(`Loaded ${this.fedexRates.length} FedEx rate records`);
-              console.log('FedEx zone headers:', zoneHeaders);
-              console.log('Sample FedEx rate data:', this.fedexRates.slice(0, 3));
+              console.log(`✅ Loaded ${this.fedexRates.length} FedEx rate records`);
+              console.log('📋 Sample FedEx rate data:', this.fedexRates.slice(0, 3));
               resolve();
             } catch (error) {
+              console.error('❌ Error parsing FedEx CSV:', error);
               reject(error);
             }
           },
-          error: reject
+          error: (error) => {
+            console.error('❌ Papa Parse error for FedEx:', error);
+            reject(error);
+          }
         });
       });
     } catch (error) {
-      console.error('Error loading FedEx rates:', error);
+      console.error('❌ Error loading FedEx rates:', error);
       throw error;
     }
   }
