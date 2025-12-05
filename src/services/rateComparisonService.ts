@@ -133,7 +133,7 @@ export class RateComparisonService {
 
   private async loadFedExRates(): Promise<void> {
     try {
-      console.log('🔄 Starting FedEx rates loading...');
+      console.log('🔄 Starting FedEx rates loading (using simple filename)...');
       const response = await fetch('/Data/fedex-rates.csv');
       console.log('📥 FedEx CSV response status:', response.status);
 
