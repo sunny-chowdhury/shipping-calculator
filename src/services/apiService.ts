@@ -31,7 +31,8 @@ export class ApiService {
           headers: {
             'Authorization': `Bearer ${this.uspsApiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 3000 // 3 second timeout
         }
       );
 
@@ -58,7 +59,8 @@ export class ApiService {
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
-          }
+          },
+          timeout: 3000 // 3 second timeout
         }
       );
 
@@ -95,7 +97,8 @@ export class ApiService {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 3000 // 3 second timeout
         }
       );
 
