@@ -190,7 +190,7 @@ export class RateComparisonService {
               reject(error);
             }
           },
-          error: (error) => {
+          error: (error: any) => {
             console.error('❌ Papa Parse error for FedEx:', error);
             reject(error);
           }
