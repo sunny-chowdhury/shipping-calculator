@@ -174,12 +174,18 @@ export class RateComparisonService {
 
     if (!closestRate) return 0;
 
+    // Handle zone key format - API returns "8" but we need "zone8"
     const zoneKey = `zone${zone}` as keyof USPSRateData;
     const rateValue = closestRate[zoneKey];
 
     if (typeof rateValue === 'string') {
       return this.parseRate(rateValue);
     }
+
+    // Debug: log what we're looking for vs what's available
+    console.log(`USPS Zone lookup failed for zone "${zone}" (looking for "${zoneKey}")`);
+    console.log('Available zone keys:', Object.keys(closestRate).filter(k => k !== 'weight'));
+    console.log(`Weight: ${weightInPounds}lbs, using rate for: ${closestRate.weight}lbs`);
 
     return 0;
   }
