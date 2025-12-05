@@ -41,6 +41,11 @@ export interface FedExRateData {
   [zone: string]: string;
 }
 
+export interface UPSRateData {
+  weight: string;
+  [zone: string]: string;
+}
+
 export interface ZoneResponse {
   zone: string;
 }

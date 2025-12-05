@@ -140,6 +140,28 @@ export class ApiService {
     return '9';
   }
 
+  async getUPSZone(originZip: string, destinationZip: string): Promise<string> {
+    // UPS doesn't have a public zone API, so we'll use approximation based on ZIP codes
+    // UPS zones are similar to FedEx but with slight differences
+    return this.calculateApproximateUPSZone(originZip, destinationZip);
+  }
+
+  private calculateApproximateUPSZone(originZip: string, destinationZip: string): string {
+    const origin = parseInt(originZip.substring(0, 3));
+    const destination = parseInt(destinationZip.substring(0, 3));
+    const difference = Math.abs(origin - destination);
+
+    // UPS Ground zones (similar to FedEx but adjusted)
+    if (difference <= 50) return '2';
+    if (difference <= 150) return '3';
+    if (difference <= 300) return '4';
+    if (difference <= 600) return '5';
+    if (difference <= 1000) return '6';
+    if (difference <= 1400) return '7';
+    if (difference <= 1800) return '8';
+    return '9';
+  }
+
   async getUSPSRate(request: USPSRateRequest): Promise<number> {
     if (!this.uspsApiKey) {
       throw new Error('USPS API key not configured');

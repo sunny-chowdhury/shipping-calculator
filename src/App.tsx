@@ -137,6 +137,8 @@ function App() {
             zone = await apiService.current.getFedExZone(row.ORIGIN_ZIP, row.DESTINATION_ZIP);
           } else if (row.CARRIER.toLowerCase().includes('usps')) {
             zone = await apiService.current.getUSPSZone(row.ORIGIN_ZIP, row.DESTINATION_ZIP);
+          } else if (row.CARRIER.toLowerCase().includes('ups')) {
+            zone = await apiService.current.getUPSZone(row.ORIGIN_ZIP, row.DESTINATION_ZIP);
           } else {
             zone = await apiService.current.getUSPSZone(row.ORIGIN_ZIP, row.DESTINATION_ZIP);
           }

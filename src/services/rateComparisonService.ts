@@ -1,11 +1,13 @@
 import Papa from 'papaparse';
-import { USPSRateData, FedExRateData, ShippingData } from '../types';
+import { USPSRateData, FedExRateData, UPSRateData, ShippingData } from '../types';
 import { FEDEX_RATES_CSV } from '../data/fedexRates';
 import { USPS_RATES_CSV } from '../data/uspsRates';
+import { UPS_RATES_CSV } from '../data/upsRates';
 
 export class RateComparisonService {
   private uspsRates: USPSRateData[] = [];
   private fedexRates: FedExRateData[] = [];
+  private upsRates: UPSRateData[] = [];
   private initialized = false;
 
   async initialize(): Promise<void> {
@@ -14,7 +16,8 @@ export class RateComparisonService {
     try {
       await Promise.all([
         this.loadUSPSRates(),
-        this.loadFedExRates()
+        this.loadFedExRates(),
+        this.loadUPSRates()
       ]);
       this.initialized = true;
     } catch (error) {
@@ -140,6 +143,56 @@ export class RateComparisonService {
     }
   }
 
+  private async loadUPSRates(): Promise<void> {
+    try {
+      const csvText = UPS_RATES_CSV;
+
+      return new Promise((resolve, reject) => {
+        Papa.parse(csvText, {
+          header: false,
+          skipEmptyLines: true,
+          complete: (result) => {
+            try {
+              const data = result.data as string[][];
+
+              if (data.length < 3) {
+                throw new Error('Invalid UPS rate data format');
+              }
+
+              const zoneHeaders = data[1].slice(1);
+
+              for (let i = 2; i < data.length; i++) {
+                const row = data[i];
+                if (row.length < 2 || !row[0]) continue;
+
+                const weight = row[0];
+                const rateData: UPSRateData = { weight };
+
+                for (let j = 1; j < row.length && j - 1 < zoneHeaders.length; j++) {
+                  const zone = zoneHeaders[j - 1];
+                  if (zone && row[j]) {
+                    rateData[zone] = this.cleanRate(row[j]);
+                  }
+                }
+
+                this.upsRates.push(rateData);
+              }
+
+              console.log(`Loaded ${this.upsRates.length} UPS rate records`);
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          error: reject
+        });
+      });
+    } catch (error) {
+      console.error('Error loading UPS rates:', error);
+      throw error;
+    }
+  }
+
   private cleanRate(rateString: string): string {
     if (!rateString) return '0';
     return rateString.replace(/[$,\s]/g, '');
@@ -222,6 +275,38 @@ export class RateComparisonService {
     return 0;
   }
 
+  public getNegotiatedUPSRate(weightInPounds: number, zone: string): number {
+    if (!this.initialized || this.upsRates.length === 0) return 0;
+
+    // Find the closest weight (equal or greater)
+    let closestRate: UPSRateData | null = null;
+    let minWeightDiff = Infinity;
+
+    for (const rate of this.upsRates) {
+      const rateWeight = parseFloat(rate.weight);
+      if (isNaN(rateWeight)) continue;
+
+      if (rateWeight >= weightInPounds && rateWeight - weightInPounds < minWeightDiff) {
+        closestRate = rate;
+        minWeightDiff = rateWeight - weightInPounds;
+      }
+    }
+
+    // If no rate found for exact weight or above, use the highest weight available
+    if (!closestRate && this.upsRates.length > 0) {
+      closestRate = this.upsRates[this.upsRates.length - 1];
+    }
+
+    if (!closestRate) return 0;
+
+    const rateValue = closestRate[zone];
+    if (rateValue) {
+      return this.parseRate(rateValue);
+    }
+
+    return 0;
+  }
+
   public calculateSavings(shippingData: ShippingData, zone: string): {
     negotiatedRate: number;
     savings: number;
@@ -241,6 +326,8 @@ export class RateComparisonService {
       negotiatedRate = this.getNegotiatedFedExRate(weightInPounds, zone);
     } else if (shippingData.CARRIER.toLowerCase().includes('usps')) {
       negotiatedRate = this.getNegotiatedUSPSRate(weightInPounds, zone);
+    } else if (shippingData.CARRIER.toLowerCase().includes('ups')) {
+      negotiatedRate = this.getNegotiatedUPSRate(weightInPounds, zone);
     }
 
     const savings = currentRate - negotiatedRate;
