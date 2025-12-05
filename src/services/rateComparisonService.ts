@@ -228,10 +228,19 @@ export class RateComparisonService {
     if (!closestRate) return 0;
 
     // Handle zone key format - API returns "8" but we need "zone8"
-    const zoneKey = `zone${zone}` as keyof USPSRateData;
-    const rateValue = closestRate[zoneKey];
+    // Handle zone key format - API returns "9" but we need "zone9"
+    let zoneKey = `zone${zone}` as keyof USPSRateData;
+    let rateValue = closestRate[zoneKey];
 
-    if (typeof rateValue === 'string') {
+    // Special handling for Zone 9: USPS Ground Advantage only goes to Zone 8
+    // Use Zone 8 rates as fallback for Zone 9 requests
+    if (!rateValue && zone === '9') {
+      zoneKey = 'zone8' as keyof USPSRateData;
+      rateValue = closestRate[zoneKey];
+      console.log(`Zone 9 not available for USPS, using Zone 8 rate as fallback`);
+    }
+
+    if (typeof rateValue === 'string' && rateValue.trim()) {
       return this.parseRate(rateValue);
     }
 
