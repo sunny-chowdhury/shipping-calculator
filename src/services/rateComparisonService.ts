@@ -168,6 +168,8 @@ export class RateComparisonService {
               }
 
               console.log(`Loaded ${this.fedexRates.length} FedEx rate records`);
+              console.log('FedEx zone headers:', zoneHeaders);
+              console.log('Sample FedEx rate data:', this.fedexRates.slice(0, 3));
               resolve();
             } catch (error) {
               reject(error);
@@ -227,7 +229,10 @@ export class RateComparisonService {
   }
 
   public getNegotiatedFedExRate(weightInPounds: number, zone: string): number {
-    if (!this.initialized || this.fedexRates.length === 0) return 0;
+    if (!this.initialized || this.fedexRates.length === 0) {
+      console.log('FedEx rates not initialized or empty:', this.fedexRates.length);
+      return 0;
+    }
 
     let closestRate: FedExRateData | null = null;
     let minWeightDiff = Infinity;
@@ -247,9 +252,30 @@ export class RateComparisonService {
       if (lastRate) closestRate = lastRate;
     }
 
-    if (!closestRate) return 0;
+    if (!closestRate) {
+      console.log('No FedEx rate found for weight:', weightInPounds);
+      return 0;
+    }
 
-    const rateValue = closestRate[zone];
+    // Try different zone formats
+    let rateValue = closestRate[zone];
+    if (!rateValue) {
+      // Try without leading zeros or different formats
+      const alternativeZones = [
+        zone.toString(),
+        parseInt(zone).toString(),
+        `zone${zone}`,
+        zone.replace(/^0+/, '') // Remove leading zeros
+      ];
+
+      for (const altZone of alternativeZones) {
+        rateValue = closestRate[altZone];
+        if (rateValue) break;
+      }
+    }
+
+    console.log(`FedEx lookup - Weight: ${weightInPounds}lbs, Zone: ${zone}, Available zones:`, Object.keys(closestRate), 'Found rate:', rateValue);
+
     return typeof rateValue === 'string' ? this.parseRate(rateValue) : 0;
   }
 
